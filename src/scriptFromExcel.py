@@ -1,6 +1,7 @@
 import pandas as pd
 import tkinter as tk
 from tkinter import filedialog
+import os
 
 # Function to get the list of sheets from the Excel file
 def get_sheet_names(excel_file):
@@ -69,13 +70,15 @@ def process_sheet(excel_file, sheet_name, script_file):
 def main():
     root = tk.Tk()
     root.withdraw()  # Hide the main window
-    
+    parent_dir = os.path.dirname(os.path.abspath(__file__)) 
+    docs_dir = os.path.abspath(os.path.join(parent_dir, "../"))
 
     # Ask the user to select the recording Script file
-    script_file = filedialog.askopenfilename(title="Select A Script File", filetypes=[("Text Files", "*.txt")])
+    script_file = filedialog.askopenfilename(initialdir=docs_dir,title="Select A Script File", filetypes=[("Text Files", "*.txt")])
     
     # Ask the user to select the Excel file
-    excel_file = filedialog.askopenfilename(title="Select Excel File", filetypes=[("Excel files", "*.xlsx")])
+    
+    excel_file = filedialog.askopenfilename(initialdir=docs_dir,title="Select Excel File", filetypes=[("Excel files", "*.xlsx")])
 
     if not excel_file:
         print("No file selected, exiting.")

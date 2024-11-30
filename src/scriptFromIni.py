@@ -2,6 +2,7 @@ import pandas as pd
 import tkinter as tk
 from tkinter import filedialog
 import configparser
+import os
 
 def process_ini(ini_file,script_file):
     config = configparser.ConfigParser()
@@ -18,17 +19,21 @@ def process_ini(ini_file,script_file):
 def main():
     root = tk.Tk()
     root.withdraw()  # Hide the main window
+    parent_dir = os.path.dirname(os.path.abspath(__file__)) 
+    docs_dir = os.path.abspath(os.path.join(parent_dir, "../"))
     
     # Ask the user to select the recording Script file
-    script_file = filedialog.askopenfilename(title="Select A Script File", filetypes=[("Text Files", "*.txt")])
+    script_file = filedialog.askopenfilename(initialdir=docs_dir,title="Select A Script File", filetypes=[("Text Files", "*.txt")])
     
     loop(script_file)
     
     
     
 def loop(script_file):
+    parent_dir = os.path.dirname(os.path.abspath(__file__)) 
+    packages_dir = os.path.abspath(os.path.join(parent_dir, "../../config/pacenotes/packages"))
     # Ask the user to select the Excel file
-    ini_file = filedialog.askopenfilename(title="Select An ini File", filetypes=[("Config File", "*.ini")])
+    ini_file = filedialog.askopenfilename(initialdir=packages_dir,title="Select An ini File", filetypes=[("Config File", "*.ini")])
 
     if not ini_file:
         print("No file selected, exiting.")

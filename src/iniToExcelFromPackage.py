@@ -1,5 +1,7 @@
 """
 This is close. When the excel file is opened, excel will add "@" to the next id formula and break it.
+Conditional formatting fixed, and the multiple methods to open files have been unified. The other
+    methods need this update.
 """
 import tkinter as tk
 from tkinter import filedialog, messagebox
@@ -12,8 +14,10 @@ from openpyxl.formatting.rule import FormulaRule
 from openpyxl.styles import Color, PatternFill, Font, Border, Side
 from openpyxl.styles.differential import DifferentialStyle
 from openpyxl.styles import PatternFill
+from openpyxl.worksheet.cell_range import CellRange
+from openpyxl.formatting.rule import FormulaRule
 import os
-import subprocess
+
 
 KEY_ORDER = ["id", "sounds", "snd0", "snd1", "column", "link"]
 
@@ -22,14 +26,6 @@ def select_file_dialog(file_type,initial_dir):
     root.withdraw()
     file = filedialog.askopenfilename(initialdir=initial_dir,title=f"Select {file_type}",filetypes=[(file_type, "*")])
     return file
-
-def select_or_create_excel():
-    file_path = select_file_dialog("Excel files")
-    if not file_path:
-        file_path = filedialog.asksaveasfilename(defaultextension=".xlsx", filetypes=[("Excel files", "*.xlsx")])
-    if not file_path:
-        return None
-    return file_path
 
 def parse_ini(file_path):
     config = configparser.ConfigParser()
@@ -83,8 +79,8 @@ def write_to_excel(data, file_path, sheet_name, org_col_start=10):
             name = int(name)
         sheet.cell(row=row_index, column=column_index, value=name)
 
-    
-     #########Data Validation
+
+    #########Data Validation
     dv = DataValidation(type="list", formula1="=$A$2:$A$100", showDropDown=False)
     dv.add('J2:N10')
     sheet.add_data_validation(dv)
@@ -163,20 +159,37 @@ def write_to_excel(data, file_path, sheet_name, org_col_start=10):
 
 
 
-def process_ini_to_excel(excel_file):
-    parent_dir = os.path.dirname(os.path.abspath(__file__)) 
-    packages_dir = os.path.abspath(os.path.join(parent_dir, "../../config/pacenotes/packages"))
-    
-    ini_file = select_file_dialog("INI files",packages_dir)
-    if not ini_file:
-        print("No INI file selected.")
-        return False
-
+def process_ini_to_excel(excel_file,ini_file):
     data = parse_ini(ini_file)
     sheet_name = os.path.splitext(os.path.basename(ini_file))[0]  # Remove '.ini' extension
     write_to_excel(data, excel_file, sheet_name)
     print(f"Data written to {excel_file} in sheet '{sheet_name}'")
     return True
+
+def read_and_process_ini(master_ini_path,excel_file):
+    """Reads the master ini file and processes the listed files."""
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    base_dir = os.path.abspath(os.path.join(script_dir, "../../config/pacenotes/packages"))
+
+    if not os.path.exists(master_ini_path):
+        print(f"INI file not found: {master_ini_path}")
+        return
+
+    config = configparser.ConfigParser()
+    config.read(master_ini_path)
+
+    for section in config.sections():
+        if section.startswith("CATEGORY::"):
+            relative_file = config[section].get("file")
+            if relative_file:
+                full_path = os.path.join(base_dir, relative_file)
+                if os.path.exists(full_path):
+                    process_ini_to_excel(excel_file,full_path)
+                else:
+                    print(f"File not found: {full_path}")
+            else:
+                print(f"No file path found in section {section}")
+                
 
 def main():
     parent_dir = os.path.dirname(os.path.abspath(__file__)) 
@@ -186,10 +199,13 @@ def main():
         print("No Excel file selected or created.")
         return
 
-    while True:
-        result = process_ini_to_excel(excel_file)
-        if not result:
-            break
+    
+    packages_dir = os.path.abspath(os.path.join(parent_dir, "../../config/pacenotes/packages"))
+    ini_path = select_file_dialog("Packages ini file",packages_dir)
+    if ini_path:
+        read_and_process_ini(ini_path,excel_file)
+    else:
+        print("No file selected.")
 
 if __name__ == "__main__":
     main()
