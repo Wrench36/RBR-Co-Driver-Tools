@@ -9,10 +9,12 @@ def process_ini(ini_file,script_file):
     config.read(ini_file)
     data = {}
     for section in config.sections():
-        if section.startswith("PACENOTE::"):
-            name = section.replace("PACENOTE::", "")
-            with open(script_file, 'a') as file:
-                file.write(f"{name}\n")
+        section = section.replace("PACENOTE::", "")
+        section = section.replace("RANGE::", "")
+        with open(script_file, 'a') as file:
+            if pd.notna(section):
+                file.write(f"{section}\n")
+    remove_duplicate_lines(script_file)
     return data
 
 # Main function to handle file selection and sheet processing
@@ -26,7 +28,21 @@ def main():
     script_file = filedialog.askopenfilename(initialdir=docs_dir,title="Select A Script File", filetypes=[("Text Files", "*.txt")])
     
     loop(script_file)
-    
+
+def remove_duplicate_lines(filename):
+    with open(filename, 'r') as f:
+        lines = f.readlines()
+
+    unique_lines = []
+    seen_lines = set()
+
+    for line in lines:
+        if line not in seen_lines:
+            unique_lines.append(line)
+            seen_lines.add(line)
+
+    with open(filename, 'w') as f:
+        f.writelines(unique_lines)
     
     
 def loop(script_file):
@@ -37,6 +53,7 @@ def loop(script_file):
 
     if not ini_file:
         print("No file selected, exiting.")
+        
         return
     
     data = process_ini(ini_file,script_file)
