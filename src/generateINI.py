@@ -53,28 +53,18 @@ def process_sheet(excel_file, sheet_name):
         file.write(f"; {sheet_name}\n; generateINI.py\n; By: Wrench\n; Date: {current_datetime_str}\n\n")
 
         for row_idx, row in organization_table.iloc[0:].iterrows():
-            print(row_idx)
             for col_idx, string in row.items():
                 if pd.notna(string):  # If the cell is not empty
                     # Retrieve the corresponding data for the string from the data_dict
                     string_data = data_dict.get(string, [])
-
                     file.write(f"[PACENOTE::{string}]\n")
-
-                    # Write the key-value pairs dynamically based on the headers from row 1
-                    for header_idx, header_value in enumerate(header[1:], start=1):  # Skip first column (id)
-                        value = df.iloc[row_idx, header_idx]  # Access corresponding value from row
-                        if pd.notna(value):  # Only write non-empty values
-                            if header_value != "Column":
-                                file.write(f"{header_value.lower()}={value}\n")  # Use the header value as the key
+                    
+                    for index, item in enumerate(string_data):
+                        if pd.notna(item) and header[index+1] != "Column":
+                            file.write(f"{header[index+1].lower()}={item}\n")
 
                     # Write the 'column' based on the organization table position
                     file.write(f"column={col_idx - 9}\n")  # Adjust column index offset
-
-                    # Write additional "Link" or other data from string_data
-                    for key, value in zip(header[6:], string_data[6:]):
-                        if pd.notna(value):
-                            file.write(f"{key}={value}\n")
 
                     file.write("\n")
 
