@@ -17,6 +17,6 @@ https://youtu.be/Dly8aVm9XRc
 
 TODO:
 - Add an option to create a script file from a package ini, all done with one click.
-  - This will require selecting any ranges as well. There is no single file which determins all of the ini's in use, so it'll have to be done that way.
+  - This will require selecting any ranges as well. There is no single file which determines all of the ini's in use, so it'll have to be done that way.
     - Look to a later YT video on that. 
 - Find a workaround for the end-user having to get rid of the "@" symbols that break the nextID formula
