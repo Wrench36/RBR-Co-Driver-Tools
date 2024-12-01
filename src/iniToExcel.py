@@ -141,14 +141,7 @@ def write_to_excel(data, file_path, sheet_name, org_col_start=10):
 
 
     ######### automatically set column width
-    """sheet.column_dimensions["A"].width = 100
-    sheet.column_dimensions["J"].width = 100
-    sheet.column_dimensions["K"].width = 100
-    sheet.column_dimensions["L"].width = 100
-    sheet.column_dimensions["M"].width = 100
-    sheet.column_dimensions["N"].width = 100"""
-    
-    for col in ["A","J", "K", "L", "M", "N"]:
+    for col in ["A","D","E","J", "K", "L", "M", "N"]:
         sheet.column_dimensions[col].auto_size = True
 
     

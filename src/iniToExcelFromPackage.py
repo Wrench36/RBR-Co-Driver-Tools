@@ -1,7 +1,5 @@
 """
 This is close. When the excel file is opened, excel will add "@" to the next id formula and break it.
-Conditional formatting fixed, and the multiple methods to open files have been unified. The other
-    methods need this update.
 """
 import tkinter as tk
 from tkinter import filedialog, messagebox
@@ -137,20 +135,13 @@ def write_to_excel(data, file_path, sheet_name, org_col_start=10):
 
 
     ######### automatically set column width
-    """sheet.column_dimensions["A"].width = 100
-    sheet.column_dimensions["J"].width = 100
-    sheet.column_dimensions["K"].width = 100
-    sheet.column_dimensions["L"].width = 100
-    sheet.column_dimensions["M"].width = 100
-    sheet.column_dimensions["N"].width = 100"""
-    
-    for col in ["A","J", "K", "L", "M", "N"]:
+    for col in ["A","D","E","J", "K", "L", "M", "N"]:
         sheet.column_dimensions[col].auto_size = True
 
     
     #########Next ID Cell
     sheet_names = workbook.sheetnames
-    formula = "=MAX(" + ",".join([f"VALUE({sheet}!B2:B100)" for sheet in sheet_names]) + ")+1"
+    formula = "=MAX(" + ",".join([f"VALUE('{sheet}'!B2:B100)" for sheet in sheet_names]) + ")+1"
     for sheet in workbook.worksheets:
         sheet["H1"].value = "Next ID"
         sheet["H2"].value = formula
