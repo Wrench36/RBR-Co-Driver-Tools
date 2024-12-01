@@ -16,6 +16,9 @@ def run_scriptGenerator():
 def run_renameRecodings():
     subprocess.run(["python", "src/renameRecodings.py"])
 
+def run_autorecord():
+    subprocess.run(["python", "src/recordAll.py"])
+
 # Set up the main window
 root = tk.Tk()
 root.title("Co-Driver Tools")
@@ -33,8 +36,11 @@ button3.pack(pady=10)
 button4 = tk.Button(root, text="Generate recording script", command=run_scriptGenerator)
 button4.pack(pady=10)
 
-button5 = tk.Button(root, text="Rename recordings", command=run_renameRecodings)
+button5 = tk.Button(root, text="Auto record from script", command=run_autorecord)
 button5.pack(pady=10)
+
+button6 = tk.Button(root, text="Rename recordings", command=run_renameRecodings)
+button6.pack(pady=10)
 
 # Start the GUI event loop
 root.mainloop()
