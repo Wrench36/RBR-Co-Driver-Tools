@@ -5,6 +5,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox
 import configparser
 import openpyxl
+from openpyxl.worksheet.table import Table, TableStyleInfo
 from openpyxl.utils import get_column_letter
 from openpyxl.styles import Alignment
 from openpyxl.worksheet.datavalidation import DataValidation
@@ -15,6 +16,7 @@ from openpyxl.styles import PatternFill
 from openpyxl.worksheet.cell_range import CellRange
 from openpyxl.formatting.rule import FormulaRule
 import os
+import re
 
 
 KEY_ORDER = ["id", "sounds", "snd0", "snd1", "column", "link"]
@@ -36,117 +38,136 @@ def parse_ini(file_path):
             data[name] = values
     return data
 
-def write_to_excel(data, file_path, sheet_name, org_col_start=10):
+def write_data_table(data,sheet,sheet_name,table_style):
+    longest_idx = 0
+    longest = 0
+    current_idx = 0
+    for key, value in data.items():
+        current_idx += 1
+        itemLen = len(value)
+
+        if itemLen > longest:
+            longest = itemLen
+            longest_idx = current_idx
+
+    keys = list(data.keys())
+    target_key = keys[longest_idx-1]
+ 
+    longestDict = {target_key: data[target_key]}
+    header = []
+    for key, value in longestDict.items():
+        for key2, note in value.items():
+            header.append(key2)
+    
+    for col_num, headers in enumerate(header, start=1):
+        sheet.cell(row=1, column=col_num, value=headers)
+         
+    row = 2
+
+    last_col = 1
+    last_col_letter = get_column_letter(last_col)
+    for names, values in data.items():
+        for name, value in enumerate(values, start=1):
+            col_num = header.index(value)+1
+            if col_num > last_col:
+                last_col = col_num
+                last_col_letter = get_column_letter(last_col)
+            sheet.cell(row=row, column=col_num, value=values[value])
+        row += 1
+    
+    table_range = f"A1:{last_col_letter}{50}"  # A1 to the last column/row
+    table = Table(displayName=f"{sheet_name}Definitions", ref=table_range)
+    table.tableStyleInfo = table_style
+    sheet.add_table(table)
+    return last_col
+
+def write_org_table(data,sheet,sheet_name,last_col,table_style):
+    org_start_col_letter = get_column_letter(last_col+2)
+    
+    org_columns = {}  # Dictionary to keep track of the current row for each column
+    for name, values in data.items():
+        column_index = int(values.get("column", 0)) + (last_col + 2)
+        if column_index not in org_columns:
+            org_columns[column_index] = 2
+        else:
+            org_columns[column_index] += 1
+        row_index = org_columns[column_index]
+        if isinstance(name, str) and name.isdigit():
+            name = int(name)
+        sheet.cell(row=row_index, column=column_index, value=name)
+
+
+    for col_idx in range(last_col+2, last_col+8):
+        header_cell = sheet.cell(row=1, column=col_idx)
+        if not header_cell.value or not isinstance(header_cell.value, str):
+            header_cell.value = f"Column{col_idx - last_col + 3}"
+        
+    rangeString = f"{org_start_col_letter}{1}:{get_column_letter(last_col+7)}{row_index}"
+    table_range = rangeString
+    table2 = openpyxl.worksheet.table.Table(ref=table_range,
+                                        displayName=f"{sheet_name}Organization",
+                                        tableStyleInfo=table_style)
+    sheet.add_table(table2)
+    
+    ##### Data Validation
+    dv = DataValidation(type="list", formula1="=$A$2:$A$50", showDropDown=False)
+    dv.add(rangeString)
+    sheet.add_data_validation(dv)
+    
+    absolute_range = re.sub(r'([A-Z]+)(\d+)', r'$\1$\2', rangeString)
+    return absolute_range
+
+def write_to_excel(data, file_path, sheet_name):
     workbook = openpyxl.load_workbook(file_path) if os.path.exists(file_path) else openpyxl.Workbook()
     if "Sheet1" in workbook.sheetnames:
         workbook.remove(workbook["Sheet1"])
     if sheet_name in workbook.sheetnames:
         workbook.remove(workbook[sheet_name])
     sheet = workbook.create_sheet(sheet_name)
-
-    # Set headers for the main data table
-    headers = ["Name", "ID", "Sounds", "Snd0", "Snd1", "Column", "Link"]
-    for col_num, header in enumerate(headers, start=1):
-        sheet.cell(row=1, column=col_num, value=header)
-
-    # Write pacenotes data to columns A onward, starting from row 2
-    row = 2
-    for name, values in data.items():
-        sheet.cell(row=row, column=1, value=name)  # Section name without "PACENOTE::"
-        for col_num, key in enumerate(KEY_ORDER, start=2):
-            sheet.cell(row=row, column=col_num, value=values[key])  # Only the value
-        row += 1
-
-    # Create header for organization table, merged across five columns starting at column J
-    org_start_col_letter = get_column_letter(org_col_start)
-    sheet.merge_cells(f"{org_start_col_letter}1:{get_column_letter(org_col_start + 4)}1")
-    sheet[f"{org_start_col_letter}1"] = "Organization Table"
-    sheet[f"{org_start_col_letter}1"].alignment = Alignment(horizontal="center")
-
-    # Populate the organization table based on 'column' values in each INI section
-    org_columns = {}  # Dictionary to keep track of the current row for each column
-    for name, values in data.items():
-        column_index = int(values.get("column", 0)) + org_col_start  # Column based on 'column' key
-        if column_index not in org_columns:
-            org_columns[column_index] = 2  # Start from row 2 for each new column
-        else:
-            org_columns[column_index] += 1  # Move to the next row in the column
-        row_index = org_columns[column_index]
-        # Convert to a number if it's a digit
-        if isinstance(name, str) and name.isdigit():
-            name = int(name)
-        sheet.cell(row=row_index, column=column_index, value=name)
-
-
-    #########Data Validation
-    dv = DataValidation(type="list", formula1="=$A$2:$A$100", showDropDown=False)
-    dv.add('J2:N10')
-    sheet.add_data_validation(dv)
-
-
-    #########Conditional Formatting
-    highlight_fill = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
-    highlight_Text = Font(color="006100")
-    dxf = DifferentialStyle(font=highlight_Text, fill=highlight_fill)
-    # Formula for duplicate checking across ranges $J$2:$N$10 and $A$2:$A$25
-    # The COUNTIF formula will check if a value appears more than once across both ranges
-    formula_duplicate_check = '=COUNTIF($A$2:$A$50,J2)>0'
-    formula_duplicate_check2 = '=COUNTIF($J$2:$N$10,A2)>0'
     
-    sheet.conditional_formatting.add(
-        "J2:N10",
-        FormulaRule(formula=[formula_duplicate_check], fill=highlight_fill)
-    )
-    sheet.conditional_formatting.add(
-        "A2:A50", 
-        FormulaRule(formula=[formula_duplicate_check2], fill=highlight_fill)
-    )
-
-
-     #########Add Border to Org Table
-    # Define the range of cells
-    start_row = 1
-    end_row = 10
-    start_col = 10
-    end_col = 14
-    # Create a border style
-    thin_border = Border(left=Side(style='thin'), 
-                        right=Side(style='thin'), 
-                        top=Side(style='thin'), 
-                        bottom=Side(style='thin'))
-    # Apply the border to each cell in the range
-    for row in range(start_row, end_row + 1):
-        for col in range(start_col, end_col + 1):
-            cell = sheet.cell(row=row, column=col)
-            cell.border = thin_border
+    nameDict = {}
+    for key, value in data.items():
+        nameDict[key] = {}
+        nameDict[key].update({"name":key})
 
         
-        
-        
-    #########Format as Table
-    # define a table style
+    for key, value in data.items():
+        nameDict[key].update(value)
+    data = nameDict
+    
+    ##### tabe style
     mediumStyle = openpyxl.worksheet.table.TableStyleInfo(name='TableStyleMedium2',
                                                         showRowStripes=True)
-    # create a table
-    table = openpyxl.worksheet.table.Table(ref='A1:G50',
-                                        displayName=f"{sheet_name}Definitions",
-                                        tableStyleInfo=mediumStyle)
-    sheet.add_table(table)
-
-
-    ######### automatically set column width
-    for col in ["A","D","E","J", "K", "L", "M", "N"]:
-        sheet.column_dimensions[col].auto_size = True
-
     
+    last_def_col = write_data_table(data,sheet,sheet_name,mediumStyle)
+    org_table_range = write_org_table(data,sheet,sheet_name,last_def_col,mediumStyle)
+   
+    ##### Conditional Formatting
+    highlight_fill = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
+    formula_duplicate_check = f'=COUNTIF({org_table_range},A2)>0'
+    sheet.conditional_formatting.add(
+        "A2:A50",
+        FormulaRule(formula=[formula_duplicate_check], fill=highlight_fill)
+    )
+    
+    ##### Column width
+    for col_num in range(1, last_def_col + 8):
+        col_letter = openpyxl.utils.get_column_letter(col_num)
+        sheet.column_dimensions[col_letter].auto_size = True
+        
+        
     #########Next ID Cell
     sheet_names = workbook.sheetnames
-    formula = "=MAX(" + ",".join([f"VALUE('{sheet}'!B2:B100)" for sheet in sheet_names]) + ")+1"
+    formula = "=MAX(" + ",".join([f"VALUE({sheet}!B2:B100)" for sheet in sheet_names]) + ")+1"
+    next_id_col = last_def_col + 1
+    next_id_col_ltr = get_column_letter(next_id_col)
+    #next_id_cell = sheet[f"{next_id_col_ltr}1"]
     for sheet in workbook.worksheets:
-        sheet["H1"].value = "Next ID"
-        sheet["H2"].value = formula
+        sheet[f"{next_id_col_ltr}1"].value = "Next ID"
+        sheet[f"{next_id_col_ltr}2"].value = formula
 
     workbook.save(file_path)
+
 
 
 

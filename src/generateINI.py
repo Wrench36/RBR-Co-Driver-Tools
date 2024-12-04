@@ -1,7 +1,14 @@
+"""
+    Restructured to work with ranges instead of hard coded columns and rows. ini to excel will have to be updated to match.
+"""
+
+
 import pandas as pd
 import tkinter as tk
 from tkinter import filedialog
 from datetime import datetime
+import openpyxl
+from openpyxl import load_workbook
 import os
 
 def get_sheet_names(excel_file):
@@ -37,39 +44,74 @@ def select_sheet(sheet_names, excel_file):
 
     root.mainloop()
 
-def process_sheet(excel_file, sheet_name):
-    df = pd.read_excel(excel_file, sheet_name=sheet_name, header=None)
-    header = df.iloc[0, :7].values.tolist()  # First row (A1 to G1) for definitions header
-    definitions = df.iloc[1:, :7]  # Columns A-G, starting from row 2
-    # The organization table starts at J2, with up to 9 rows and extending from column J onwards
-    organization_table = df.iloc[1:10, 9:]  # Up to 9 rows, starting from column J
-    data_dict = definitions.set_index(0).T.to_dict('list')
+def defTable_to_DefDict(ws,tableName):
+    outputDict = {}
+    table = ws.tables[tableName]
+    table_range = table.ref
+    table_head = ws[table_range][0]
+    #print(table_head)
+    table_data = ws[table_range][1:]
+    columns = [column for column in table_head]
+    for cell in columns:
+        if cell.value == "name":
+            defNameCol = cell.column
+    
+    for row in table_data:
+        noteDict = {} 
+        dictKey = row[defNameCol - 1].value
+        for cell in row:
+            key = table_head[cell.column - 1].value
+            val = cell.value
+            noteDict[key] = val
+        outputDict[dictKey] = noteDict
+    return outputDict
 
+def orgTable_to_orgDict(ws,tableName):
+    outputDict = {}
+    table = ws.tables[tableName]
+    table_range = table.ref
+    table_head = ws[table_range][0]
+    #print(table_head)
+    table_data = ws[table_range][1:]
+    dictKey = 1
+    
+    
+    for row in table_data:
+        noteDict = []
+        for cell in row:
+            key = len(noteDict)+1
+            val = cell.value
+            noteDict.append(val)
+        outputDict[dictKey] = noteDict
+        dictKey = dictKey + 1
+    return outputDict
+
+def process_sheet(excel_file, sheet_name):
+    wb = load_workbook(excel_file)
+    ws = wb[sheet_name]
+
+    defDict = defTable_to_DefDict(ws,f"{sheet_name}Definitions")
+    orgDict = orgTable_to_orgDict(ws,f"{sheet_name}Organization")
+    
+    output_file = f"{sheet_name}.ini"
     current_datetime = datetime.now()
     current_datetime_str = current_datetime.strftime("%Y-%m-%d %H:%M:%S")
-
-    output_file = f"{sheet_name}.ini"
     with open(output_file, 'w') as file:
         file.write(f"; {sheet_name}\n; generateINI.py\n; By: Wrench\n; Date: {current_datetime_str}\n\n")
-
-        for row_idx, row in organization_table.iloc[0:].iterrows():
-            for col_idx, string in row.items():
-                if pd.notna(string):  # If the cell is not empty
-                    # Retrieve the corresponding data for the string from the data_dict
-                    string_data = data_dict.get(string, [])
-                    file.write(f"[PACENOTE::{string}]\n")
-                    
-                    for index, item in enumerate(string_data):
-                        if pd.notna(item) and header[index+1] != "Column":
-                            file.write(f"{header[index+1].lower()}={item}\n")
-
-                    # Write the 'column' based on the organization table position
-                    file.write(f"column={col_idx - 9}\n")  # Adjust column index offset
-
-                    file.write("\n")
-
-    print(f"File saved as {output_file}")
-
+        for key, value in orgDict.items():
+            col = 0
+            if key != 'Column':
+                for note in value:
+                    if note != None:
+                        print(defDict[note])
+                        for entry, value in defDict[note].items():
+                            if entry == "name":
+                                file.write(f"[PACENOTE::{value}]\n")
+                            elif entry != "column" and value != None:
+                                 file.write(f"{entry}={value}\n")
+                        file.write(f"column={col}\n\n")
+                        col = col+1
+   
 
 def main():
     root = tk.Tk()
